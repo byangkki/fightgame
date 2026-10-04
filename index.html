@@ -1,0 +1,665 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Arcade Fighter Arena</title>
+    <style>
+        * {
+            box-sizing: border-box;
+            user-select: none;
+            -webkit-user-select: none;
+            touch-action: manipulation;
+        }
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #05050d;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: #fff;
+            overflow: hidden;
+        }
+        #app {
+            width: 100%;
+            height: 100%;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        .screen {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: none;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            background: radial-gradient(circle at center, #151530 0%, #05050a 100%);
+            z-index: 10;
+        }
+        .screen.active {
+            display: flex;
+        }
+        /* Main Menu */
+        h1 {
+            font-size: 2.8rem;
+            color: #00ffff;
+            text-shadow: 0 0 20px rgba(0,255,255,0.6), 0 0 40px rgba(0,255,255,0.3);
+            margin-bottom: 10px;
+            text-transform: uppercase;
+            letter-spacing: 3px;
+        }
+        .subtitle {
+            font-size: 1.1rem;
+            color: #ff007f;
+            margin-bottom: 40px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+        }
+        .menu-btn {
+            background: linear-gradient(135deg, #ff007f, #7f00ff);
+            border: none;
+            color: white;
+            padding: 15px 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            border-radius: 30px;
+            cursor: pointer;
+            text-transform: uppercase;
+            box-shadow: 0 5px 20px rgba(255,0,127,0.4);
+            transition: all 0.2s;
+            margin: 10px;
+        }
+        .menu-btn:active {
+            transform: scale(0.95);
+        }
+        /* Character Select */
+        .char-grid {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin-bottom: 25px;
+        }
+        .char-card {
+            background: rgba(20, 20, 45, 0.8);
+            border: 2px solid #333;
+            border-radius: 12px;
+            padding: 15px 25px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .char-card.selected {
+            border-color: #00ffff;
+            background: rgba(0, 255, 255, 0.15);
+            box-shadow: 0 0 15px rgba(0,255,255,0.4);
+        }
+        .char-name {
+            font-size: 1.2rem;
+            font-weight: bold;
+            color: #fff;
+        }
+        /* Battle Screen */
+        #battle-screen {
+            background: #000;
+        }
+        #hud {
+            position: absolute;
+            top: 15px;
+            left: 0;
+            width: 100%;
+            padding: 0 20px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            z-index: 20;
+            pointer-events: none;
+        }
+        .player-hud {
+            width: 42%;
+            display: flex;
+            flex-direction: column;
+        }
+        .player-info {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 5px;
+            font-weight: bold;
+            font-size: 1.1rem;
+            text-transform: uppercase;
+        }
+        .health-bar-container {
+            width: 100%;
+            height: 18px;
+            background: #222;
+            border: 2px solid #444;
+            border-radius: 9px;
+            overflow: hidden;
+            position: relative;
+        }
+        .health-bar {
+            height: 100%;
+            width: 100%;
+            background: linear-gradient(90deg, #ff3333, #ff9900);
+            transition: width 0.1s linear;
+        }
+        .player-hud:nth-child(2) .health-bar {
+            background: linear-gradient(90deg, #0099ff, #00ffff);
+            float: right;
+        }
+        .timer-round {
+            text-align: center;
+        }
+        .timer {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #ffcc00;
+            text-shadow: 0 0 10px rgba(255,204,0,0.5);
+        }
+        .round-text {
+            font-size: 0.75rem;
+            color: #aaa;
+            letter-spacing: 1px;
+        }
+        
+        /* Canvas Arena */
+        #game-canvas {
+            width: 100%;
+            height: 60%;
+            background: linear-gradient(to bottom, #0a0a23 0%, #1a1a3a 70%, #05050f 100%);
+            display: block;
+        }
+
+        /* Controls Area */
+        #controls-area {
+            flex: 1;
+            background: #080812;
+            border-top: 2px solid #222;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 10px 20px;
+            position: relative;
+        }
+        .dpad-container {
+            display: grid;
+            grid-template-columns: repeat(3, 55px);
+            grid-template-rows: repeat(3, 55px);
+            gap: 5px;
+        }
+        .ctrl-btn {
+            background: rgba(40, 40, 70, 0.8);
+            border: 2px solid rgba(255,255,255,0.2);
+            border-radius: 12px;
+            color: white;
+            font-size: 1.2rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+        }
+        .ctrl-btn:active, .ctrl-btn.pressed {
+            background: rgba(0, 255, 255, 0.4);
+            border-color: #00ffff;
+            transform: scale(0.95);
+        }
+        #btn-up { grid-column: 2; grid-row: 1; }
+        #btn-left { grid-column: 1; grid-row: 2; }
+        #btn-right { grid-column: 3; grid-row: 2; }
+        #btn-down { grid-column: 2; grid-row: 3; }
+        
+        .attacks-container {
+            display: grid;
+            grid-template-columns: repeat(2, 65px);
+            grid-template-rows: repeat(2, 65px);
+            gap: 10px;
+        }
+        .atk-btn {
+            border-radius: 50%;
+            border: 2px solid rgba(255,255,255,0.3);
+            color: white;
+            font-weight: bold;
+            font-size: 1rem;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.4);
+        }
+        .atk-btn:active, .atk-btn.pressed {
+            transform: scale(0.92);
+            filter: brightness(1.2);
+        }
+        #btn-la { background: #cc2244; border-color: #ff4466; }
+        #btn-ra { background: #aa1122; border-color: #cc2233; }
+        #btn-lf { background: #cc7700; border-color: #ff9922; }
+        #btn-rf { background: #aa5500; border-color: #cc7711; }
+        
+        #announcer {
+            position: absolute;
+            top: 35%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 3rem;
+            font-weight: bold;
+            color: #ff0055;
+            text-shadow: 0 0 20px rgba(255,0,85,0.8);
+            pointer-events: none;
+            z-index: 50;
+            transition: opacity 0.3s;
+            opacity: 0;
+            text-transform: uppercase;
+        }
+    </style>
+</head>
+<body>
+    <div id="app">
+        <!-- Main Menu Screen -->
+        <div id="menu-screen" class="screen active">
+            <h1>Arcade Fighter</h1>
+            <div class="subtitle">Ultimate Showdown</div>
+            <button class="menu-btn" onclick="goToModeSelect()">Play Game</button>
+        </div>
+
+        <!-- Mode Select Screen -->
+        <div id="mode-screen" class="screen">
+            <h1>Select Mode</h1>
+            <button class="menu-btn" onclick="selectMode('1p')">1 Player vs CPU</button>
+            <button class="menu-btn" onclick="selectMode('2p')">2 Players Local</button>
+            <button class="menu-btn" style="background:#444; margin-top:20px;" onclick="goToMenu()">Back</button>
+        </div>
+
+        <!-- Character Select Screen -->
+        <div id="char-screen" class="screen">
+            <h1>Choose Fighter</h1>
+            <div class="char-grid">
+                <div class="char-card selected" id="card-jin" onclick="selectFighter('Jin')">
+                    <div class="char-name">Jin</div>
+                </div>
+                <div class="char-card" id="card-kazuya" onclick="selectFighter('Kazuya')">
+                    <div class="char-name">Kazuya</div>
+                </div>
+                <div class="char-card" id="card-paul" onclick="selectFighter('Paul')">
+                    <div class="char-name">Paul</div>
+                </div>
+                <div class="char-card" id="card-law" onclick="selectFighter('Law')">
+                    <div class="char-name">Law</div>
+                </div>
+            </div>
+            <button class="menu-btn" id="start-fight-btn" onclick="startBattle()">Select Fighter / Start Fight</button>
+        </div>
+
+        <!-- Battle Screen -->
+        <div id="battle-screen" class="screen">
+            <div id="hud">
+                <div class="player-hud">
+                    <div class="player-info">
+                        <span id="p1-name">Jin</span>
+                        <span id="p1-hp-text">100</span>
+                    </div>
+                    <div class="health-bar-container">
+                        <div id="p1-hp" class="health-bar"></div>
+                    </div>
+                </div>
+                <div class="timer-round">
+                    <div id="timer" class="timer">99</div>
+                    <div class="round-text">ROUND 1</div>
+                </div>
+                <div class="player-hud">
+                    <div class="player-info" style="flex-direction: row-reverse;">
+                        <span id="p2-name">Kazuya</span>
+                        <span id="p2-hp-text">100</span>
+                    </div>
+                    <div class="health-bar-container">
+                        <div id="p2-hp" class="health-bar"></div>
+                    </div>
+                </div>
+            </div>
+
+            <div id="announcer">Ready? Fight!</div>
+
+            <canvas id="game-canvas"></canvas>
+
+            <div id="controls-area">
+                <div class="dpad-container">
+                    <div class="ctrl-btn" id="btn-up" ontouchstart="handleInput('up', true)" ontouchend="handleInput('up', false)" onmousedown="handleInput('up', true)" onmouseup="handleInput('up', false)">▲</div>
+                    <div class="ctrl-btn" id="btn-left" ontouchstart="handleInput('left', true)" ontouchend="handleInput('left', false)" onmousedown="handleInput('left', true)" onmouseup="handleInput('left', false)">◀</div>
+                    <div class="ctrl-btn" id="btn-right" ontouchstart="handleInput('right', true)" ontouchend="handleInput('right', false)" onmousedown="handleInput('right', true)" onmouseup="handleInput('right', false)">▶</div>
+                    <div class="ctrl-btn" id="btn-down" ontouchstart="handleInput('down', true)" ontouchend="handleInput('down', false)" onmousedown="handleInput('down', true)" onmouseup="handleInput('down', false)">▼</div>
+                </div>
+                <div class="attacks-container">
+                    <div class="atk-btn" id="btn-la" ontouchstart="triggerAttack('la')" onmousedown="triggerAttack('la')">LA</div>
+                    <div class="atk-btn" id="btn-ra" ontouchstart="triggerAttack('ra')" onmousedown="triggerAttack('ra')">RA</div>
+                    <div class="atk-btn" id="btn-lf" ontouchstart="triggerAttack('lf')" onmousedown="triggerAttack('lf')">LF</div>
+                    <div class="atk-btn" id="btn-rf" ontouchstart="triggerAttack('rf')" onmousedown="triggerAttack('rf')">RF</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let gameMode = '1p';
+        let selectedChar = 'Jin';
+        let cpuChar = 'Kazuya';
+        
+        function showScreen(screenId) {
+            document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+            document.getElementById(screenId).classList.add('active');
+        }
+
+        function goToMenu() { showScreen('menu-screen'); }
+        function goToModeSelect() { showScreen('mode-screen'); }
+        function selectMode(mode) {
+            gameMode = mode;
+            showScreen('char-screen');
+        }
+
+        function selectFighter(char) {
+            selectedChar = char;
+            document.querySelectorAll('.char-card').forEach(c => c.classList.remove('selected'));
+            document.getElementById('card-' + char.toLowerCase()).classList.add('selected');
+        }
+
+        function startBattle() {
+            const chars = ['Jin', 'Kazuya', 'Paul', 'Law'];
+            const opponents = chars.filter(c => c !== selectedChar);
+            cpuChar = opponents[Math.floor(Math.random() * opponents.length)];
+
+            document.getElementById('p1-name').innerText = selectedChar;
+            document.getElementById('p2-name').innerText = cpuChar;
+
+            showScreen('battle-screen');
+            initGame();
+        }
+
+        // Game Engine
+        const canvas = document.getElementById('game-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let p1, p2, gameRunning = false, timerInterval;
+        const inputState = { up: false, down: false, left: false, right: false };
+
+        function resizeCanvas() {
+            canvas.width = canvas.parentElement.clientWidth;
+            canvas.height = canvas.parentElement.clientHeight;
+        }
+        window.addEventListener('resize', resizeCanvas);
+
+        class Fighter {
+            constructor(name, x, isCpu, color) {
+                this.name = name;
+                this.x = x;
+                this.y = 0;
+                this.vy = 0;
+                this.hp = 100;
+                this.maxHp = 100;
+                this.isCpu = isCpu;
+                this.color = color;
+                this.state = 'idle'; // idle, walk, jump, crouch, dodge, attack, hit
+                this.animTimer = 0;
+                this.attackType = null;
+                this.facing = isCpu ? -1 : 1;
+            }
+
+            update(opponent) {
+                // Gravity
+                this.y += this.vy;
+                if (this.y < 0) {
+                    this.vy += 0.8; // gravity
+                } else {
+                    this.y = 0;
+                    this.vy = 0;
+                    if (this.state === 'jump') this.state = 'idle';
+                }
+
+                // Face opponent
+                this.facing = this.x < opponent.x ? 1 : -1;
+
+                if (!this.isCpu) {
+                    // Player controls
+                    if (this.state !== 'attack' && this.state !== 'hit') {
+                        if (inputState.up && this.y === 0) {
+                            this.vy = -14;
+                            this.state = 'jump';
+                        } else if (inputState.down) {
+                            this.state = 'crouch';
+                        } else if (inputState.left) {
+                            // Backward / Dodge
+                            if (opponent.state === 'attack') {
+                                this.state = 'dodge';
+                            } else {
+                                this.x -= 4;
+                                this.state = 'walk';
+                            }
+                        } else if (inputState.right) {
+                            this.x += 4;
+                            this.state = 'walk';
+                        } else {
+                            if (this.state !== 'jump') this.state = 'idle';
+                        }
+                    }
+                } else {
+                    // CPU AI Logic
+                    if (Math.random() < 0.03 && this.state === 'idle') {
+                        const dist = Math.abs(this.x - opponent.x);
+                        if (dist > 120) {
+                            this.x += (this.x < opponent.x ? 3 : -3);
+                            this.state = 'walk';
+                        } else if (dist <= 120) {
+                            const atk = ['la', 'ra', 'lf', 'rf'][Math.floor(Math.random() * 4)];
+                            this.cpuAttack(atk, opponent);
+                        }
+                    }
+                }
+
+                // Boundaries
+                if (this.x < 50) this.x = 50;
+                if (this.x > canvas.width - 50) this.x = canvas.width - 50;
+
+                if (this.animTimer > 0) {
+                    this.animTimer--;
+                    if (this.animTimer === 0 && (this.state === 'attack' || this.state === 'hit')) {
+                        this.state = 'idle';
+                    }
+                }
+            }
+
+            attack(type, opponent) {
+                if (this.state === 'attack' || this.state === 'hit') return;
+                this.state = 'attack';
+                this.attackType = type;
+                this.animTimer = 18; // duration frames
+
+                // Check hit distance
+                const dist = Math.abs(this.x - opponent.x);
+                if (dist < 110) {
+                    if (opponent.state === 'dodge') {
+                        // Dodged!
+                        return;
+                    }
+                    let damage = 8;
+                    if (type === 'ra') damage = 14;
+                    if (type === 'rf') damage = 16;
+                    if (type === 'lf') damage = 10;
+                    
+                    opponent.hp = Math.max(0, opponent.hp - damage);
+                    opponent.state = 'hit';
+                    opponent.animTimer = 12;
+                    updateHUD();
+                }
+            }
+
+            cpuAttack(type, opponent) {
+                this.attack(type, opponent);
+            }
+
+            draw() {
+                ctx.save();
+                ctx.translate(this.x, canvas.height - 80 + this.y);
+
+                // Shadow
+                ctx.fillStyle = 'rgba(0,0,0,0.5)';
+                ctx.beginPath();
+                ctx.ellipse(0, 70, 30 - Math.abs(this.y)/3, 8, 0, 0, Math.PI * 2);
+                ctx.fill();
+
+                // Character body rendering
+                const isHit = this.state === 'hit';
+                ctx.fillStyle = isHit ? '#ffffff' : this.color;
+
+                // Legs / Stance
+                ctx.lineWidth = 10;
+                ctx.strokeStyle = this.color;
+                ctx.lineCap = 'round';
+
+                if (this.state === 'crouch') {
+                    // Crouched body
+                    ctx.fillRect(-15, -40, 30, 45);
+                    ctx.fillStyle = '#ffccaa';
+                    ctx.beginPath();
+                    ctx.arc(0, -55, 14, 0, Math.PI * 2);
+                    ctx.fill();
+                } else {
+                    // Standing / Walking / Attacking body
+                    ctx.fillRect(-18, -80, 36, 60); // Torso
+                    
+                    // Head
+                    ctx.fillStyle = '#ffccaa';
+                    ctx.beginPath();
+                    ctx.arc(0, -100, 16, 0, Math.PI * 2);
+                    ctx.fill();
+
+                    // Limbs
+                    ctx.beginPath();
+                    if (this.state === 'attack') {
+                        // Punch / Kick extension
+                        ctx.moveTo(0, -70);
+                        ctx.lineTo(this.facing * 60, -75);
+                    } else {
+                        ctx.moveTo(0, -70);
+                        ctx.lineTo(this.facing * 25, -40);
+                    }
+                    ctx.stroke();
+
+                    // Name Tag above fighter
+                    ctx.fillStyle = '#fff';
+                    ctx.font = 'bold 12px sans-serif';
+                    ctx.textAlign = 'center';
+                    ctx.fillText(this.name, 0, -125);
+                }
+
+                ctx.restore();
+            }
+        }
+
+        function initGame() {
+            resizeCanvas();
+            gameRunning = true;
+            p1 = new Fighter(selectedChar, canvas.width * 0.35, false, '#ff3366');
+            p2 = new Fighter(cpuChar, canvas.width * 0.65, gameMode === '1p', '#00ccff');
+
+            updateHUD();
+
+            // Announcement
+            const ann = document.getElementById('announcer');
+            ann.innerText = "READY? FIGHT!";
+            ann.style.opacity = 1;
+            setTimeout(() => { ann.style.opacity = 0; }, 1500);
+
+            // Timer
+            let timeLeft = 99;
+            document.getElementById('timer').innerText = timeLeft;
+            clearInterval(timerInterval);
+            timerInterval = setInterval(() => {
+                timeLeft--;
+                document.getElementById('timer').innerText = timeLeft;
+                if (timeLeft <= 0 || p1.hp <= 0 || p2.hp <= 0) {
+                    endRound();
+                }
+            }, 1000);
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function gameLoop() {
+            if (!gameRunning) return;
+
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+            // Draw Arena Floor grid lines
+            ctx.strokeStyle = 'rgba(0, 255, 255, 0.1)';
+            ctx.lineWidth = 1;
+            for (let i = 0; i < canvas.width; i += 40) {
+                ctx.beginPath();
+                ctx.moveTo(i, canvas.height - 80);
+                ctx.lineTo(i + (i - canvas.width/2)*0.5, canvas.height);
+                ctx.stroke();
+            }
+            ctx.fillStyle = '#111122';
+            ctx.fillRect(0, canvas.height - 80, canvas.width, 80);
+
+            p1.update(p2);
+            p2.update(p1);
+
+            p1.draw();
+            p2.draw();
+
+            if (p1.hp <= 0 || p2.hp <= 0) {
+                endRound();
+                return;
+            }
+
+            requestAnimationFrame(gameLoop);
+        }
+
+        function updateHUD() {
+            document.getElementById('p1-hp').style.width = (p1.hp / p1.maxHp * 100) + '%';
+            document.getElementById('p1-hp-text').innerText = p1.hp;
+            document.getElementById('p2-hp').style.width = (p2.hp / p2.maxHp * 100) + '%';
+            document.getElementById('p2-hp-text').innerText = p2.hp;
+        }
+
+        function handleInput(dir, isDown) {
+            inputState[dir] = isDown;
+            const btn = document.getElementById('btn-' + dir);
+            if (btn) {
+                if (isDown) btn.classList.add('pressed');
+                else btn.classList.remove('pressed');
+            }
+        }
+
+        function triggerAttack(type) {
+            if (!gameRunning) return;
+            p1.attack(type, p2);
+            const btn = document.getElementById('btn-' + type);
+            if (btn) {
+                btn.classList.add('pressed');
+                setTimeout(() => btn.classList.remove('pressed'), 150);
+            }
+        }
+
+        function endRound() {
+            gameRunning = false;
+            clearInterval(timerInterval);
+            const ann = document.getElementById('announcer');
+            if (p1.hp > p2.hp) {
+                ann.innerText = selectedChar + " WINS!";
+            } else if (p2.hp > p1.hp) {
+                ann.innerText = cpuChar + " WINS!";
+            } else {
+                ann.innerText = "DRAW!";
+            }
+            ann.style.opacity = 1;
+
+            setTimeout(() => {
+                goToMenu();
+            }, 3000);
+        }
+    </script>
+</body>
+</html>
